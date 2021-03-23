@@ -17,7 +17,7 @@ from sklearn.metrics import classification_report
 stopwords_set = set(stopwords.words('english'))
 
 def load_data(database_filepath):
-    ''' Load data from database '''
+    ''' Load data from sqlite database '''
     
     # Create sql engine
     engine = create_engine('sqlite:///' + database_filepath)
@@ -30,21 +30,11 @@ def load_data(database_filepath):
     X = df['message']
     Y = df.drop(columns=['id', 'message', 'original', 'genre'])
     
-    # Remove any rows where target label not in [0,1]
-    drop_idxs = []
-    for col in Y.columns: 
-        if Y[col][(Y[col] != 0) & (Y[col] != 1)].any():
-            drop_idxs += Y[col][(Y[col] != 0) & (Y[col] != 1)]\
-            .index.values.tolist()
-    
-    X = X.drop(drop_idxs)
-    Y = Y.drop(drop_idxs)
-    
     return X, Y, Y.columns
 
 
 def tokenize(text):
-
+    ''' Tokenize the supplied text messages '''
     # Remove majority of urls
     url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     url_bitly = 'http\s[a-z\.]+\s[a-zA-Z0-9]+'
@@ -77,43 +67,56 @@ def build_model(X_train):
     vocab_len = len(vocab.vocabulary_)
     
     parameters = {
-                #'vect__max_df': [1.0], 
-                #'vect__ngram_range': [(1,1)], 
-                'vect__max_features': [None, int(vocab_len*0.7)], 
-                'clf__max_features': [500, 1000, 1500],
-                'clf__min_samples_split': [2, 3, 4], 
-                'clf__n_estimators': [100]
-                }
+            #'vect__max_df': [1.0], 
+            #'vect__ngram_range': [(1,1)], 
+            'vect__max_features': [None, int(vocab_len*0.7)], 
+            'clf__max_features': [1000, 1500],
+            'clf__min_samples_split': [2, 3, 4], 
+            'clf__n_estimators': [100, 150]
+            }
     
-    model = GridSearchCV(pipeline, parameters, verbose=3, n_jobs=8)
+    model = GridSearchCV(pipeline, parameters, verbose=3, n_jobs=10)
     
-    #return pipeline
     return model
 
 def evaluate_model(model, X_test, Y_test, category_names):
     ''' Print accuracy, precision, recall and f1-score.
-     Given summarised overall categories and per category.
+     Summarised overall categories and per category.
     '''
     Y_pred = model.predict(X_test)
     
     print('\n\nClassification Report - Average over all Categories:')
-    print(f'Accuracy:\
-        {(Y_test.to_numpy().flatten() == Y_pred.flatten()).mean():.3f}\n')
     print(classification_report(Y_test.to_numpy().flatten(),
                                 Y_pred.flatten()))
 
     print('\n\nClassification Report - Results per Categories:\n')
     for i in range(36):
         print(f'Category: {category_names[i]}')
-        print(f'Accuracy:\
-            {(Y_test.to_numpy()[:,i] == Y_pred[:,i]).mean():.3f}\n')
         print(classification_report(Y_test.to_numpy()[:,i], Y_pred[:,i],
                                     zero_division=0),'\n')
     
+    # Create classification_report df for frontend usage
+    df_rep = pd.DataFrame()
+    for i in range(36):
+        clf_rep = classification_report(Y_test.to_numpy()[:,i],
+                                        Y_pred[:,i],
+                                        output_dict=True,
+                                        zero_division=0)
+        df = pd.DataFrame.from_dict(clf_rep)
+        df = df.set_index([[category_names[i]] * 4, df.index])
+        df_rep = pd.concat([df_rep, df])
+    
+    return df_rep
+
 
 def save_model(model, model_filepath):
     with open(model_filepath, 'wb') as destination:
         pickle.dump(model, destination)
+
+
+def save_report(df):
+    with open('classification_report.pkl', 'wb') as destination:
+        pickle.dump(df, destination)
 
 
 def main():
@@ -131,8 +134,11 @@ def main():
         print('Model params:\n', model.best_params_)
         
         print('Evaluating model...')
-        evaluate_model(model, X_test, Y_test, category_names)
+        df_rep = evaluate_model(model, X_test, Y_test, category_names)
 
+        print('Saving report...\n   REPORT: classification_report.pkl')
+        save_report(df_rep)
+        
         print('Saving model...\n    MODEL: {}'.format(model_filepath))
         save_model(model, model_filepath)
 

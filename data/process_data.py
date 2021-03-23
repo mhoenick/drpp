@@ -38,7 +38,16 @@ def clean_data(df):
         d_left = df['message'].shape[0] - df['message'].value_counts().shape[0]
         print(f'    Duplicates removed: {duplicates}\n\
             Duplicates left: {d_left}')
+  
+    # Remove any rows where target label not in [0,1]
+    drop_idxs = []
+    for col in col_names:
+        if df[col][(df[col] != 0) & (df[col] != 1)].any():
+            drop_idxs += df[col][(df[col] != 0) & (df[col] !=1)]\
+                        .index.values.tolist()
     
+    df = df.drop(drop_idxs)
+  
     return df
 
 def save_data(df, database_filename):

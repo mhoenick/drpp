@@ -1,5 +1,7 @@
 import nltk
-nltk.download('punkt', 'stopwords', 'wordnet')
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
 import sys
 import re
 import pickle
@@ -14,10 +16,24 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import classification_report
 
+# Create set of stopwords
 stopwords_set = set(stopwords.words('english'))
 
 def load_data(database_filepath):
-    ''' Load data from sqlite database '''
+    '''
+    Load data from sqlite database
+    
+    One table with filename supplied in database_filepath will be read.
+    The read in table will be split in data and target df's.
+    
+    Parameters
+    database_filepath (str): path to db from root dir, supplied via cmd line
+    
+    Returns:
+    X (df): dataset of text messages to predict on
+    Y (df): correct target values for X_test
+    Y.columns (list): List(index) of target categories     
+    '''
     
     # Create sql engine
     engine = create_engine('sqlite:///' + database_filepath)
@@ -34,7 +50,16 @@ def load_data(database_filepath):
 
 
 def tokenize(text):
-    ''' Tokenize the supplied text messages '''
+    '''
+    Tokenize the supplied text messages
+    
+    Parameters
+    text (str): text message
+    
+    Returns:
+    text (list): list including tokenized words of input text
+    '''
+    
     # Remove majority of urls
     url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     url_bitly = 'http\s[a-z\.]+\s[a-zA-Z0-9]+'
@@ -53,8 +78,20 @@ def tokenize(text):
 
 
 def build_model(X_train):
-    ''' Model: Transformer and Estimator Pipeline '''
-
+    '''
+    Model: Transformer and Estimator Pipeline
+    
+    Creates estimator pipeline and performs GridSearchCV on it.
+    GridSearchCV parameters need to be modified manually inside this function 
+    if required.
+    
+    Parameters 
+    X_train (df): Trainig dataset
+    
+    Returns
+    estimator: Classifiction model    
+    '''
+    
     pipeline = Pipeline([
     ('vect', CountVectorizer(tokenizer=tokenize)),
     ('tfidf', TfidfTransformer()),
@@ -66,6 +103,7 @@ def build_model(X_train):
     vocab.fit_transform(X_train)
     vocab_len = len(vocab.vocabulary_)
     
+    # parameters for GridSearchCV
     parameters = {
             #'vect__max_df': [1.0], 
             #'vect__ngram_range': [(1,1)], 
@@ -80,15 +118,27 @@ def build_model(X_train):
     return model
 
 def evaluate_model(model, X_test, Y_test, category_names):
-    ''' Print accuracy, precision, recall and f1-score.
-     Summarised overall categories and per category.
+    '''
+    Print accuracy, precision, recall and f1-score.
+    Summarised overall categories and per category.
+     
+    Parameters
+    model (estimator): fitted classifier
+    X_test (df): dataset to predict/evaluate on
+    X_train (df): correct target values for X_test
+    category_names (list): target names
+    
+    Returns
+    df_rep (df): classification_report per category
     '''
     Y_pred = model.predict(X_test)
     
+    # Classifiction report overall categories averaged
     print('\n\nClassification Report - Average over all Categories:')
     print(classification_report(Y_test.to_numpy().flatten(),
                                 Y_pred.flatten()))
-
+    
+    # Classifiction report per category
     print('\n\nClassification Report - Results per Categories:\n')
     for i in range(36):
         print(f'Category: {category_names[i]}')

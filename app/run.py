@@ -29,7 +29,6 @@ def tokenize(text):
 # load data
 engine = create_engine('sqlite:///../data/DisasterResponse.db')
 df = pd.read_sql_table('DisasterResponse', engine)
-df = df.drop(df[df['related']==2].index)  #delete me
 
 # load model
 model = joblib.load("../models/classifier.pkl")

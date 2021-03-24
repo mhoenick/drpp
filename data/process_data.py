@@ -4,7 +4,17 @@ from sqlalchemy import create_engine
 
 
 def load_data(messages_filepath, categories_filepath):
-    ''' Load and merge messages and categories CSV files '''
+    '''
+    Load and merge messages and categories CSV files
+    
+    Parameters
+    messages_filepath (str): path to message csv file, supplied via cmd line
+    categories_filepath (str): path to categories csv file, supplied via cmd line
+    
+    Returns
+    df (df): dataframe containing messages and categories    
+    '''
+    
     messages = pd.read_csv(messages_filepath)
     categories = pd.read_csv(categories_filepath)
     
@@ -12,7 +22,19 @@ def load_data(messages_filepath, categories_filepath):
     return df
 
 def clean_data(df):
-    ''' Clean messages and categories data '''
+    '''
+    Clean messages and categories data
+    
+    Category target values extracted and converted to binary. 
+    Rows of duplicate messages and target values not 0 or 1 dropped.
+    
+    Parameters
+    df (df): dataframe containing messages and categories from load_data() func
+    
+    Returns
+    df (df): cleaned data containing messages and categories
+    '''
+    
     # Split categories into separate category columns
     categories = df['categories'].str.split(';', expand=True)
     
@@ -51,7 +73,17 @@ def clean_data(df):
     return df
 
 def save_data(df, database_filename):
-    ''' Save cleaned data in SQLite database'''
+    '''
+    Save cleaned data in SQLite database
+    
+    Parameters
+    df (df): cleaned dataset from clean_data() func
+    database_filename (str): filename of database, supplied via cmd line
+    
+    Returns
+    Writes a sqlite database to path database_filename
+    '''
+    
     sql_db = 'sqlite:///' + database_filename 
     engine = create_engine(sql_db)
     df.to_sql(database_filename.rstrip('.db'), 
